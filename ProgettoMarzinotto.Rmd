@@ -1,0 +1,190 @@
+---
+title: "Progetto Fondamenti di Scienza dei Dati"
+author: "Aurora Marzinotto"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+#librerie utilizzate
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(readxl)
+
+#dataset
+criminiAnni<-read_excel("CyberCrimeTypesinUS.xlsx", sheet=1)
+perditeCausate<-read_excel("CyberCrimeTypesinUS.xlsx", sheet=2)
+vittimeStati<-read_excel("CyberCrimeTypesinUS.xlsx", sheet=3)
+perditeStati<-read_excel("CyberCrimeTypesinUS.xlsx", sheet=4)
+perditeVittimeStati<-read_excel("CyberCrimeTypesinUS.xlsx", sheet=5)
+PerditeVittime2022<-read_excel("Dati2019_2022.xlsx")
+```
+
+```{css, echo=FALSE}
+slides > slide{
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  background:white;
+}
+
+
+h2{
+    font-size: 35px;
+    line-height: 65px;
+    letter-spacing: -2px;
+    position: relative;
+    color: #6C4675;
+    left: -60px;
+    background-color: #e6dee7;
+    padding: 8px;
+    width: 112.5%;
+    border-left: 5px solid #ccc;
+}
+```
+## Come nasce il progetto
+Il progetto riguardante gli attacchi hacker negli Stati Uniti tra il 2019 e il 2022 nasce per:
+
+- interesse per questo campo
+- curiosità personale
+
+Motivi per il quale mi sono posta le seguenti domande:
+
+- Quali stati hanno riscontrato più vittime?
+- C'è una correlazione tra numero di vittime e perdite subite dagli stati?
+- Quante vittime sono state colpite da attacchi informatici in quegli anni?
+- Come sono cambiate le perdite inflitte tra il 2019 e il 2021?
+- Come sono cambiate le cose nel 2022?
+
+
+## Dataset utilizzati
+
+Per sviluppare il progetto sono stati utilizzati i seguenti dataset:
+
+-  <a href="https://www.kaggle.com/datasets/ijimakinsamuel/cyber-crimes-in-us-2019-2021"> Crimini informatici 19-21</a>
+-  Dati2019_2022.xlsx(creato da me)
+
+Prelevati dalle seguenti fonti:
+
+-   Kaggle
+-   IC3 (Internet Crime Complaint Center)
+
+## Quali stati hanno riscontrato più vittime?
+Osserviamo quali sono i dieci stati che hanno avuto più vittime:
+```{r vittimeStati,fig.align='center'}
+statiMaggiori = 
+  vittimeStati %>%
+  filter(between(Rank,1,10)) %>%
+  select(State,Victims)
+
+statiAbb <- strtrim(statiMaggiori$State, 3)
+
+barplot(height = statiMaggiori$Victims, border = F,main="Numero di vittime in ogni stato", las = 2,
+        names.arg = statiAbb,
+        col = c("#6C4675","#B49EB8","#B49EB8","#B49EB8","#B49EB8","#B49EB8","#B49EB8","#B49EB8","#B49EB8","#B49EB8"),
+         ylab="Vittime",xlab="Stato")
+```
+
+## C'è una correlazione tra numero di vittime e perdite subite dagli stati?
+Possiamo osservare ora la correlazione tra numero di vittime e perdite per stato:
+```{r correlazione,fig.align='center'}
+vittPer = 
+  perditeVittimeStati%>%
+  select(States,Vittims,Losses)
+
+ggplot(vittPer,aes(x=Losses, y=Vittims)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(from=0, to=1500000000, by = 250000000))+
+  geom_smooth(color="#6C4675",formula = y ~ x, method = "loess") + 
+  labs(
+    title = "Correlazione tra il numero di vittime e le perdite inflitte",
+    x = "Perdite in dollari ",
+    y = "Numero di vittime",
+  )
+
+```
+
+## Quante vittime sono state colpite da attacchi informatici in quegli anni?
+
+```{r vittimeAnni,fig.align='center'}
+somma2021 <- sum(criminiAnni$"2021")
+somma2020 <- sum(criminiAnni$"2020")
+somma2019 <- sum(criminiAnni$"2019")
+
+dati <- data.frame(
+  Anno = c(2019, 2020,2021),
+  NumeroVittime = c(somma2019,somma2020,somma2021)
+)
+
+# Crea il grafico a dispersione
+graficoDisp <- ggplot(dati, aes(x = Anno, y = NumeroVittime)) +
+  geom_point(color="#8A2BE2",size=3) +
+  geom_line(color="#BA55D3")+
+  labs(x = "Anno", y = "Numero di Vittime", title = "Relazione tra Numero di Vittime e Anno")+
+  theme_minimal()
+
+# Mostra il grafico
+print(graficoDisp)
+
+```
+
+## Come sono cambiate le perdite inflitte tra il 2019 e il 2021?
+
+```{r perditeAnni,fig.align='center'}
+# Trasforma il dataframe in un formato long per ggplot2
+dati_perdite_long <- pivot_longer(perditeCausate, cols = c("2021", "2020","2019"), names_to = "Anno", values_to = "Perdite")
+
+# Crea il grafico a barre raggruppato
+grafico_barre <- ggplot(data = dati_perdite_long, aes(x = CrimeType, y =Perdite, fill = Anno)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Tipo Attacco", y = "Perdite in Dollari", fill = "Anno") +
+  scale_x_discrete(labels = abbreviate) +  #abbrevia le etichette sull'asse x
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) #ruota le etichette in verticale per migliorarne la leggibilità
+grafico_barre
+
+```
+Questo aumento viene messo in risalto se osserviamo le perdite totali
+```{r perditetotali,fig.align='center'}
+somma2021 <- sum(perditeCausate$"2021")
+somma2020 <- sum(perditeCausate$"2020")
+somma2019 <- sum(perditeCausate$"2019")
+
+dati <- data.frame(
+  Anno = c(2019, 2020,2021),
+  PerditeTotali = c(somma2019,somma2020,somma2021)
+)
+
+colori=c("#B49EB8","#B49EB8","#6C4675")
+
+ggplot(dati, aes(x = PerditeTotali, y = factor(Anno)))+
+  geom_bar(stat = "identity", fill = colori, width = 0.7) +
+  labs(x = "Perdite Causate", y = "Anno", title = "Perdite Causate negli Anni") +
+  theme_minimal() +
+  scale_y_discrete(limits = rev(levels(factor(dati$Anno))))
+```
+
+## Come sono cambiate le cose nel 2022?
+Presi i dati riguardanti le vittime e le perdite causate da attacchi informatici nell'ultimo anno possiamo dire che:
+
+- Rispetto al 2021 le vittime sono:
+```{r conclusioni,fig.align='center'}
+vitt2022 = 
+  PerditeVittime2022%>%
+  filter(Anni == "2022") %>%
+  select(Vittime)
+print(vitt2022)
+```
+ciò vuol dire che sono diminuite
+
+- Le perdite invece sono:
+```{r conclusioni2,fig.align='center'}
+per2022 = 
+  PerditeVittime2022%>%
+  filter(Anni == "2022") %>%
+  select(Perdite)
+print(per2022)
+```
+che sono invece aumentate rispetto agli anni precedenti
